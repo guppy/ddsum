@@ -60,7 +60,7 @@ if __name__ == "__main__":
 		sumfunc.update(data)
 		outfile.write(data)
 
-	print >>sys.stderr, "%s: %s" % (sumfunc.hexdigest(), fname)
+	print >>sys.stderr, "%s  %s" % (sumfunc.hexdigest(), fname)
 
 
 
