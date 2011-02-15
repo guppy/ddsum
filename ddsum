@@ -1,0 +1,66 @@
+#!/usr/bin/python
+
+import sys
+import hashlib
+import os.path
+
+if __name__ == "__main__":
+	from optparse import OptionParser
+        parser = OptionParser(usage="usage: %prog [options] infile|- outfile\ninfile and outfile are optional, stdin/stdout are assumed")
+        parser.add_option("-H", "--hash", action="store", dest="hash", default="sha256", help="FIPS secure hash algorithm to use (default: sha256)")
+        parser.add_option("-b", "--blocksize", action="store", type="int", dest="bytes", default=4096, help="read and write BYTES bytes at a time")
+        (opts, args) = parser.parse_args()
+
+	largs = len(args)
+
+	if largs > 2:
+		parser.print_usage()
+		sys.exit(1)
+
+	infile = outfile = None
+	fname = "-"
+
+	if largs != 0:
+		if args[0] == "-":
+			infile = sys.stdin
+		else:
+			try:
+				infile = open(args[0], "rb")
+			except Exception, e:
+				print >>sys.stderr, e
+				sys.exit(1)
+	
+			fname = os.path.basename(args[0])
+	
+	if largs == 2:
+		try:
+			outfile = open(args[1], "wb")
+		except Exception, e:
+			print >>sys.stderr, e
+			sys.exit(1)
+
+	if infile is None:
+		infile = sys.stdin
+
+	if outfile is None:
+		outfile = sys.stdout
+	
+	try:
+		sumfunc = hashlib.new(opts.hash)
+	except Exception, e:
+		print >>sys.stderr, e
+		sys.exit(1)
+
+	while 1:
+		data = infile.read(opts.bytes)
+
+		if len(data) == 0:
+			break
+
+		sumfunc.update(data)
+		outfile.write(data)
+
+	print >>sys.stderr, "%s: %s" % (sumfunc.hexdigest(), fname)
+
+
+
