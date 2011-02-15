@@ -17,8 +17,9 @@ if __name__ == "__main__":
 		parser.print_usage()
 		sys.exit(1)
 
-	infile = outfile = None
-	fname = "-"
+	infile = sys.stdin
+	outfile = sys.stdout
+	filename = "-"
 
 	if largs != 0:
 		if args[0] == "-":
@@ -30,7 +31,7 @@ if __name__ == "__main__":
 				print >>sys.stderr, e
 				sys.exit(1)
 	
-			fname = os.path.basename(args[0])
+			filename = os.path.basename(args[0])
 	
 	if largs == 2:
 		try:
@@ -39,12 +40,8 @@ if __name__ == "__main__":
 			print >>sys.stderr, e
 			sys.exit(1)
 
-	if infile is None:
-		infile = sys.stdin
+		filename = os.path.basename(args[1])
 
-	if outfile is None:
-		outfile = sys.stdout
-	
 	try:
 		sumfunc = hashlib.new(opts.hash)
 	except Exception, e:
@@ -60,7 +57,7 @@ if __name__ == "__main__":
 		sumfunc.update(data)
 		outfile.write(data)
 
-	print >>sys.stderr, "%s  %s" % (sumfunc.hexdigest(), fname)
+	print >>sys.stderr, "%s  %s" % (sumfunc.hexdigest(), filename)
 
 
 
