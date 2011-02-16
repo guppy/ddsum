@@ -48,7 +48,7 @@ if __name__ == "__main__":
 	
 		filename = os.path.basename(args[0])
 	
-	if largs == 2:
+	if largs == 2 and args[1] != "-":
 		try:
 			outfile = open(args[1], "wb")
 		except Exception, e:
