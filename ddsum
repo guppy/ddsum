@@ -5,7 +5,7 @@ import os.path
 
 if __name__ == "__main__":
 	from optparse import OptionParser
-        parser = OptionParser(usage="usage: %prog [options] infile|- outfile\ninfile and outfile are optional, stdin/stdout are assumed", version="%prog 2")
+        parser = OptionParser(usage="usage: %prog [options] infile|- outfile\ninfile and outfile are optional, stdin/stdout are assumed", version="%prog 3")
         parser.add_option("-b", "--blocksize", action="store", type="int", dest="bytes", default=4096, help="read and write BYTES bytes at a time")
         parser.add_option("-H", "--hash", action="store", dest="hash", default="sha1", help="FIPS secure hash algorithm to use (default: sha256)")
         (opts, args) = parser.parse_args()
@@ -32,7 +32,7 @@ if __name__ == "__main__":
 		try:
 			sumfunc = hashlib.new(opts.hash)
 		except Exception, e:
-			print >>sys.stderr, e
+			print >>sys.stderr, "%s: %s" % (sys.argv[0], e)
 			sys.exit(1)
 
 	infile = sys.stdin
@@ -43,7 +43,7 @@ if __name__ == "__main__":
 		try:
 			infile = open(args[0], "rb")
 		except Exception, e:
-			print >>sys.stderr, e
+			print >>sys.stderr, "%s: %s" % (sys.argv[0], e)
 			sys.exit(1)
 	
 		filename = os.path.basename(args[0])
@@ -52,7 +52,7 @@ if __name__ == "__main__":
 		try:
 			outfile = open(args[1], "wb")
 		except Exception, e:
-			print >>sys.stderr, e
+			print >>sys.stderr, "%s: %s" % (sys.argv[0], e)
 			sys.exit(1)
 
 		filename = os.path.basename(args[1])

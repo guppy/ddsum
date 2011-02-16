@@ -1,6 +1,6 @@
 Name:      ddsum
 Summary:   checksum tool
-Version:   2
+Version:   3
 Release:   1
 License:   BSD
 Group:     System Environment/Base
@@ -33,5 +33,9 @@ cp -f ddsum  %{buildroot}/%{_bindir}/
 
 
 %changelog
+* Wed Feb 16 2011 Jeff Fisher <guppy@ddsum.com> - 3-1
+- Added support for versions of python without hashlib
+- Cleaned up error output
+
 * Tue Feb 15 2011 Jeff Fisher <guppy@ddsum.com> - 2-1
 - Added a spec file 
