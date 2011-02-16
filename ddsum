@@ -32,7 +32,7 @@ if __name__ == "__main__":
 		try:
 			hashfunc = hashlib.new(opts.hash)
 		except ValueError, e:
-			print >>sys.stderr, "%s: %s" % (sys.argv[0], e)
+			print >>sys.stderr, "%s:" % sys.argv[0], e
 
 			if hasattr(hashlib, 'algorithms'):
 				print >>sys.stderr, "\navailable hashes:", ", ".join(hashlib.algorithms)
@@ -45,7 +45,7 @@ if __name__ == "__main__":
 		try:
 			sys.stdin = open(args[0], "rb")
 		except Exception, e:
-			print >>sys.stderr, "%s: %s" % (sys.argv[0], e)
+			print >>sys.stderr, "%s:" % sys.argv[0], e
 			sys.exit(1)
 	
 		filename = args[0]
@@ -54,7 +54,7 @@ if __name__ == "__main__":
 		try:
 			sys.stdout = open(args[1], "wb")
 		except Exception, e:
-			print >>sys.stderr, "%s: %s" % (sys.argv[0], e)
+			print >>sys.stderr, "%s:" % sys.argv[0], e
 			sys.exit(1)
 
 		filename = args[1]
