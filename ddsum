@@ -25,13 +25,17 @@ if __name__ == "__main__":
 			import sha
 			sumfunc = sha.new()
 		else:
-			print >>sys.stderr, "%s: hashlib was not found, only md5 and sha1 are currently available." % sys.argv[0]
+			print >>sys.stderr, "%s: hashlib was not found, only md5 and sha1 are available." % sys.argv[0]
 			sys.exit(1)
 	else:
 		try:
 			hashfunc = hashlib.new(opts.hash)
-		except Exception, e:
+		except ValueError, e:
 			print >>sys.stderr, "%s: %s" % (sys.argv[0], e)
+
+			if hasattr(hashlib, 'algorithms'):
+				print >>sys.stderr, "\navailable hashes:", ", ".join(hashlib.algorithms)
+
 			sys.exit(1)
 
 	filename = "-"
