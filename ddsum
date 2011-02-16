@@ -4,7 +4,7 @@ import sys
 
 if __name__ == "__main__":
 	from optparse import OptionParser
-	parser = OptionParser(usage="usage: %prog [options] infile|- outfile\ninfile and outfile are optional, stdin/stdout are assumed", version="%prog 3")
+	parser = OptionParser(usage="usage: %prog [options] infile|- outfile\ninfile and outfile are optional, stdin/stdout are assumed", version="%prog 4")
 	parser.add_option("-b", "--blocksize", action="store", type="int", dest="bytes", default=4096, help="read and write BYTES bytes at a time")
 	parser.add_option("-H", "--hash", action="store", dest="hash", default="sha1", help="FIPS secure hash algorithm to use (default: sha1)")
 	(opts, args) = parser.parse_args()
