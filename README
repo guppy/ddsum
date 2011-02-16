@@ -1,0 +1,14 @@
+ddsum
+=====
+
+A checksum tool inspired by dd5sum (by lessfs), but with support for other FIPS
+secure hash algorithms.
+
+Example:
+
+  $ mysqldump -e test | ddsum -H sha384 | bzip2 -9 | ddsum -H sha384 - test.sql.bz2
+
+Requirements
+============
+
+python >= 2.4
