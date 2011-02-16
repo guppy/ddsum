@@ -4,14 +4,15 @@ import sys
 
 if __name__ == "__main__":
 	from optparse import OptionParser
-	parser = OptionParser(usage="usage: %prog [options] infile|- outfile\ninfile and outfile are optional, stdin/stdout are assumed", version="%prog 4")
+	parser = OptionParser(usage="usage: %prog [OPTION] [infile [outfile]]", version="%prog 4")
 	parser.add_option("-b", "--blocksize", action="store", type="int", dest="bytes", default=4096, help="read and write BYTES bytes at a time")
 	parser.add_option("-H", "--hash", action="store", dest="hash", default="sha1", help="FIPS secure hash algorithm to use (default: sha1)")
+	parser.add_option("--devnull", action="store_true", dest="devnull", default=False, help="Just hash the data and then throw it away")
 	(opts, args) = parser.parse_args()
 
 	largs = len(args)
 
-	if largs > 2:
+	if largs > 2 or (opts.devnull and largs > 1):
 		parser.print_usage()
 		sys.exit(1)
 
@@ -50,7 +51,7 @@ if __name__ == "__main__":
 	
 		filename = args[0]
 	
-	if largs == 2 and args[1] != "-":
+	if not opts.devnull and largs == 2 and args[1] != "-":
 		try:
 			sys.stdout = open(args[1], "wb")
 		except Exception, e:
@@ -67,7 +68,8 @@ if __name__ == "__main__":
 			break
 
 		hashfunc.update(data)
-		sys.stdout.write(data)
+		if not opts.devnull:
+			sys.stdout.write(data)
 
 	print >>sys.stderr, "%s *%s" % (hashfunc.hexdigest(), filename)
 
