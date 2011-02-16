@@ -1,8 +1,8 @@
 ddsum
 =====
 
-A checksum tool inspired by dd5sum (by lessfs), but with support for other FIPS
-secure hash algorithms.
+A checksum tool inspired by dd5sum, but with support for other FIPS secure hash
+algorithms.
 
 Example:
 
@@ -11,4 +11,4 @@ Example:
 Requirements
 ============
 
-python >= 2.4
+python >= 2.2
