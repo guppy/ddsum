@@ -1,6 +1,6 @@
 Name:      ddsum
 Summary:   checksum tool
-Version:   4
+Version:   5
 Release:   1
 License:   BSD
 Group:     System Environment/Base
