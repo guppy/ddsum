@@ -1,44 +1,160 @@
 #!/usr/bin/python
 
 import sys
+import os.path
 
 if __name__ == "__main__":
 	from optparse import OptionParser
 	parser = OptionParser(usage="usage: %prog [OPTION] [infile [outfile]]", version="%prog 5")
 	parser.add_option("-b", "--blocksize", action="store", type="int", dest="bytes", default=4096, help="read and write BYTES bytes at a time")
+	parser.add_option("-c", "--check", action="store_true", dest="check", default=False, help="read sums from the FILEs and check them")
 	parser.add_option("-H", "--hash", action="store", dest="hash", default="sha1", help="FIPS secure hash algorithm to use (default: sha1)")
-	parser.add_option("--devnull", action="store_true", dest="devnull", default=False, help="Just hash the data and then throw it away")
+	parser.add_option("--devnull", action="store_true", dest="devnull", default=False, help="just hash the data and then throw it away")
 	(opts, args) = parser.parse_args()
 
+	try:
+		import hashlib
+	except ImportError:
+		algorithms = []
+		digest_lengths = {}
+
+		try:
+			import md5
+		except:
+			pass
+		else:
+			algorithms.append("md5")
+			digest_lengths[md5.digest_size] = "md5"
+
+		try:
+			import sha
+		except:
+			pass
+		else:
+			algorithms.append("sha1")
+			digest_lengths[sha.digest_size] = "sha1"
+	else:
+		if hasattr(hashlib, 'algorithms'):
+			algorithms = hashlib.algorithms
+		else:
+			algorithms = ("md5", "sha1", "sha224", "sha256", "sha384", "sha512")
+
+		digest_lengths = {}
+		for digest in algorithms:
+			length = hashlib.new(digest).digest_size * 2
+			digest_lengths[length] = digest
+
 	largs = len(args)
+
+	if opts.check:
+		if largs == 0:
+			parser.print_usage()
+			sys.exit(1)
+
+		total = 0
+		failed = 0
+
+		for f in args:
+			try:
+				fd = open(f, "r")
+			except Exception, e:
+				print >>sys.stderr, "%s:" % sys.argv[0], e
+				continue
+
+			found = False
+
+			for line in fd:
+				try:
+					digest, filename = line.strip().split(" ", 1)
+				except:
+					continue
+
+				open_mode = "r"
+
+				if filename[0] == "*":
+					open_mode = "rb"
+					filename = filename[1:]
+				elif filename[0] == " ":
+					filename = filename[1:]
+
+				ldigest = len(digest)
+
+				if ldigest in digest_lengths:
+					digest_type = digest_lengths[ldigest]
+					hashfunc = None
+
+					try:
+						hashfunc = hashlib.new(digest_type)
+					except:
+						if digest_type == "md5" and "md5" in algorithms:
+							hashfunc = md5.new()
+						elif digest_type == "sha1" and "sha1" in algorithms:
+							hashfunc = sha.new()
+
+					if hashfunc is None:
+						continue
+						
+					found = True
+				
+					if filename == "-":
+						infile = sys.stdin
+					else:	
+						try:
+							infile = open(os.path.realpath(filename), open_mode)
+						except Exception, e:
+							print >>sys.stderr, "%s:" % sys.argv[0], e
+							continue
+
+					total += 1
+
+					while True:
+						data = infile.read(opts.bytes)
+
+						if not data:
+							break
+
+						hashfunc.update(data)
+					
+					if filename != "-":
+						infile.close()
+	
+					print "%s:" % filename,
+
+					if hashfunc.hexdigest() == digest:
+						print "OK"
+					else:
+						print "FAILED"
+						failed += 1
+							
+			fd.close()
+
+			if not found:
+				print >>sys.stderr, "%s: %s: no properly formatted checksum lines found" % (sys.argv[0], f)
+
+		if failed != 0:
+			print >>sys.stderr, "%s: WARNING: %d of %d computed checksum did NOT match" % (sys.argv[0], failed, total)
+			sys.exit(1)
+	
+		sys.exit(0)
 
 	if largs > 2 or (opts.devnull and largs > 1):
 		parser.print_usage()
 		sys.exit(1)
 
+	hashfunc = None
+
 	try:
-		import hashlib
-	except ImportError:
-		if opts.hash == "md5":
-			import md5
+		hashfunc = hashlib.new(opts.hash)
+	except:
+		if opts.hash == "md5" and "md5" in algorithms:
 			hashfunc = md5.new()
-		elif opts.hash == "sha1":
-			import sha
+		elif opts.hash == "sha1" and "sha1" in algorithms:
 			hashfunc = sha.new()
-		else:
-			print >>sys.stderr, "%s: unsupported hash type" % sys.argv[0], opts.hash
-			print >>sys.stderr, "\navailable hashes: md5, sha1"
-			sys.exit(1)
-	else:
-		try:
-			hashfunc = hashlib.new(opts.hash)
-		except ValueError, e:
-			print >>sys.stderr, "%s:" % sys.argv[0], e
 
-			if hasattr(hashlib, 'algorithms'):
-				print >>sys.stderr, "\navailable hashes:", ", ".join(hashlib.algorithms)
-
-			sys.exit(1)
+	if hashfunc is None:
+		print >>sys.stderr, "%s: unsupported hash type" % sys.argv[0], opts.hash
+		print >>sys.stderr, "\navailable hashes:", ", ".join(algorithms)
+		sys.exit(1)
 
 	filename = "-"
 
