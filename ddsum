@@ -5,10 +5,10 @@ import os.path
 
 if __name__ == "__main__":
 	from optparse import OptionParser
-	parser = OptionParser(usage="usage: %prog [OPTION] [infile [outfile]]", version="%prog 5")
+	parser = OptionParser(usage="usage: %prog [OPTION] [infile [outfile]]", version="%prog 6")
 	parser.add_option("-b", "--blocksize", action="store", type="int", dest="bytes", default=4096, help="read and write BYTES bytes at a time")
 	parser.add_option("-c", "--check", action="store_true", dest="check", default=False, help="read sums from the FILEs and check them")
-	parser.add_option("-H", "--hash", action="store", dest="hash", default="sha1", help="FIPS secure hash algorithm to use (default: sha1)")
+	parser.add_option("-H", "--hash", action="append", dest="hash", help="FIPS secure hash algorithm to use (default: sha1)")
 	parser.add_option("--devnull", action="store_true", dest="devnull", default=False, help="just hash the data and then throw it away")
 	(opts, args) = parser.parse_args()
 
@@ -141,18 +141,30 @@ if __name__ == "__main__":
 		parser.print_usage()
 		sys.exit(1)
 
-	hashfunc = None
+	if opts.hash is None:
+		hashes = ['sha1',]
+	else:
+		hashes = []
 
-	try:
-		hashfunc = hashlib.new(opts.hash)
-	except:
-		if opts.hash == "md5" and "md5" in algorithms:
-			hashfunc = md5.new()
-		elif opts.hash == "sha1" and "sha1" in algorithms:
-			hashfunc = sha.new()
+		for i in opts.hash:
+			hashes += i.split(",")
 
-	if hashfunc is None:
-		print >>sys.stderr, "%s: unsupported hash type" % sys.argv[0], opts.hash
+	hashfuncs = {}
+	ok = True
+
+	for i in hashes:
+		try:
+			hashfuncs[i] = hashlib.new(i)
+		except:
+			if i == "md5" and "md5" in algorithms:
+				hashfuncs["md5"] = md5.new()
+			elif i == "sha1" and "sha1" in algorithms:
+				hashfuncs["sha1"] = sha.new()
+			else:
+				print >>sys.stderr, "%s: unsupported hash type" % sys.argv[0], i
+				ok = False
+
+	if not ok:
 		print >>sys.stderr, "\navailable hashes:", ", ".join(algorithms)
 		sys.exit(1)
 
@@ -183,11 +195,15 @@ if __name__ == "__main__":
 		if not data:
 			break
 
-		hashfunc.update(data)
+		for name, func in hashfuncs.iteritems():
+			func.update(data)
+		
 		if not opts.devnull:
 			sys.stdout.write(data)
 
-	print >>sys.stderr, "%s *%s" % (hashfunc.hexdigest(), filename)
+	for name, func in hashfuncs.iteritems():
+		if len(hashfuncs) > 1:
+			print >>sys.stderr, "# %s" % name.upper()
 
-
+		print >>sys.stderr, "%s *%s" % (func.hexdigest(), filename)
 
