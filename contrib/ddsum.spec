@@ -1,6 +1,6 @@
 Name:      ddsum
 Summary:   checksum tool
-Version:   5
+Version:   6
 Release:   1
 License:   BSD
 Group:     System Environment/Base
@@ -31,6 +31,11 @@ cp -f ddsum  %{buildroot}/%{_bindir}/
 %defattr(-,root,root)
 %{_bindir}/ddsum
 
+
+%changelog
+* Wed Feb 23 2011 Jeff Fisher <guppy@ddsum.com> - 6-1
+- Added a check mode
+- Multiple checksums can now be computed in one pass
 
 %changelog
 * Wed Feb 16 2011 Jeff Fisher <guppy@ddsum.com> - 3-1
