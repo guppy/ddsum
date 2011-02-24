@@ -22,10 +22,13 @@ def check_hashes(fd):
 		else:
 			continue
 
-		digest_type = digest_lengths.get(len(digest), None)
+		if opts.hash is not None:
+			digest_type = opts.hash[0]
+		else:		
+			digest_type = digest_lengths.get(len(digest), None)
 		
-		if digest_type is None:
-			continue
+			if digest_type is None:
+				continue
 
 		hashfunc = None
 
@@ -39,7 +42,7 @@ def check_hashes(fd):
 
 		if hashfunc is None:
 			continue
-					
+
 		if filename == "-":
 			infile = sys.stdin
 		else:	
@@ -88,6 +91,8 @@ if __name__ == "__main__":
 	parser.add_option("--devnull", action="store_true", dest="devnull", default=False, help="just hash the data and then throw it away")
 	(opts, args) = parser.parse_args()
 
+	has_hashlib = False
+
 	try:
 		import hashlib
 	except ImportError:
@@ -110,6 +115,8 @@ if __name__ == "__main__":
 			algorithms.append("sha1")
 			digest_lengths[sha.digest_size * 2] = "sha1"
 	else:
+		has_hashlib = True
+
 		if hasattr(hashlib, 'algorithms'):
 			algorithms = hashlib.algorithms
 		else:
@@ -178,7 +185,11 @@ if __name__ == "__main__":
 				ok = False
 
 	if not ok:
-		print >>sys.stderr, "\navailable hashes:", ", ".join(algorithms)
+		print >>sys.stderr, "\nSupported algorithms:", ", ".join(algorithms)
+
+		if has_hashlib:
+			print >>sys.stderr, " ** Additional algorithms may also be available depending upon the OpenSSL library that Python uses on your platform."
+
 		sys.exit(1)
 
 	filename = "-"
