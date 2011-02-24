@@ -11,7 +11,9 @@ BuildArch: noarch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 %description
-ddsum is a checksum tool inspired by dd5sum.
+ddsum is a tool used to calculate and check message digests.
+
+See http://ddsum.com for more details.
 
 %prep
 %setup -q

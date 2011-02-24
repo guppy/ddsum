@@ -1,12 +1,23 @@
 ddsum
 =====
 
-A checksum tool inspired by dd5sum, but with support for other FIPS secure hash
-algorithms.
+Inspired by dd5sum, ddsum includes the following features:
+
+ * Support for md5, sha1, sha224, sha256, sha384 and sha512 (plus any
+   additional digests provided by OpenSSL)
+ * Read source data and write it out while computing a message digest
+ * The ability to compute multiple message digests with one-pass of the source
+   data
+ * Verify that a message digest matches the data you have
 
 Example:
 
-  $ mysqldump -e test | ddsum -H sha384 | bzip2 -9 | ddsum -H sha384 - test.sql.bz2
+$ ssh root@example.com 'dd if=/dev/sdb | ddsum -h sha256' 2>sdb.img.sha256 | dd of=sdb.img
+$ ddsum -c sdb.img.sha256 < sdb.img
+
+This would compute a sha256 message digest of /dev/sdb on example.com and then
+check that the data we wrote to sdb.img matches the message digest that was
+previously generated.
 
 Requirements
 ============
