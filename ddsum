@@ -60,7 +60,7 @@ def get_hashfunc(name):
 		print >>sys.stderr, " ** Additional algorithms may also be available depending upon the OpenSSL library that Python uses on your platform."
 		sys.exit(1)
 	
-def check_hashes(fd, init_hashfunc, digest_name=None):
+def check_hashes(fd):
 	total = failed = 0
 
 	while True:
@@ -87,17 +87,12 @@ def check_hashes(fd, init_hashfunc, digest_name=None):
 		else:
 			continue
 
-		if init_hashfunc is None:
-			digest_name = digest_lengths.get(len(digest), None)
+		digest_name = digest_lengths.get(len(digest), None)
 		
-			if digest_name is None:
-				continue
-
-			hashfunc = get_hashfunc(digest_name)
-		elif len(digest) != init_hashfunc.digest_size * 2:
+		if digest_name is None:
 			continue
-		else:
-			hashfunc = init_hashfunc.copy()
+
+		hashfunc = get_hashfunc(digest_name)
 
 		if filename == "-":
 			infile = sys.stdin
@@ -154,10 +149,8 @@ if __name__ == "__main__":
 
 	if opts.check:
 		if opts.hash is not None:
-			hashfunc = get_hashfunc(opts.hash[0])
-			digest_name = opts.hash[0]
+			digest_lengths = {get_hashfunc(opts.hash[0]).digest_size * 2: opts.hash[0]}
 		else:
-			hashfunc = digest_name = None
 			digest_lengths = {}
 			for digest in hashlib.algorithms:
 				digest_lengths[hashlib.new(digest).digest_size * 2] = digest
@@ -170,7 +163,7 @@ if __name__ == "__main__":
 
 		for f in args:
 			if f == "-":
-				ret = check_hashes(sys.stdin, hashfunc, digest_name)
+				ret = check_hashes(sys.stdin)
 			else:
 				try:
 					fd = open(f, "r")
@@ -178,7 +171,7 @@ if __name__ == "__main__":
 					print >>sys.stderr, "%s:" % sys.argv[0], e
 					continue
 				else:
-					ret = check_hashes(fd, hashfunc, digest_name)
+					ret = check_hashes(fd)
 
 			total += ret["total"]
 			failed += ret["failed"]
