@@ -103,6 +103,7 @@ if __name__ == "__main__":
 	parser.add_option("-b", "--blocksize", action="store", type="int", dest="bytes", default=4096, help="read and write BYTES bytes at a time")
 	parser.add_option("-c", "--check", action="store_true", dest="check", default=False, help="read sums from the FILEs and check them")
 	parser.add_option("-h", "--hash", action="append", dest="hash", help="FIPS secure hash algorithm(s) to use (default: sha1)")
+	parser.add_option("-H", action="append", metavar="HASH", dest="hash_legacy", help="DEPRECATED, use -h or --hash instead")
 	parser.add_option("--devnull", action="store_true", dest="devnull", default=False, help="just hash the data and then throw it away")
 	(opts, args) = parser.parse_args()
 
@@ -145,13 +146,18 @@ if __name__ == "__main__":
 		parser.print_usage()
 		sys.exit(1)
 
-	if opts.hash is None:
-		hashes = ['sha1',]
-	else:
-		hashes = []
+	hashes = []
 
+	if opts.hash_legacy is not None:
+		print >>sys.stderr, "WARNING: -H is deprecated, use -h or --hash instead as this option will removed."
+		hashes += opts.hash_legacy
+
+	if opts.hash is not None:
 		for i in opts.hash:
 			hashes += i.split(",")
+
+	if len(hashes) == 0:
+		hashes = ['sha1',]
 
 	hashfuncs = {}
 	ok = True
