@@ -1,6 +1,6 @@
 Name:      ddsum
 Summary:   checksum tool
-Version:   6
+Version:   7
 Release:   1
 License:   BSD
 Group:     System Environment/Base
@@ -35,6 +35,12 @@ cp -f ddsum  %{buildroot}/%{_bindir}/
 
 
 %changelog
+* Thu Feb 24 2011 Jeff Fisher <guppy@ddsum.com> - 7-1
+- Added the ability to force what type of hash to use when checking files
+- Cleaned up the code used when hashlib isn't available
+- Updated README with the new text from the website
+- Added stdin support to check mode
+ 
 * Wed Feb 23 2011 Jeff Fisher <guppy@ddsum.com> - 6-1
 - Added a check mode
 - Multiple checksums can now be computed in one pass
