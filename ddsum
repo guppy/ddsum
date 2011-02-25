@@ -37,7 +37,15 @@ def get_hashfunc(name):
 def check_hashes(fd, init_hashfunc, digest_name=None):
 	total = failed = 0
 
-	for line in fd:
+	while True:
+		try:
+			line = fd.readline()
+		except KeyboardInterrupt:
+			sys.exit(0)
+
+		if not line:
+			break
+
 		try:
 			digest, filename = line.strip().split(" ", 1)
 		except:
@@ -60,6 +68,8 @@ def check_hashes(fd, init_hashfunc, digest_name=None):
 				continue
 
 			hashfunc = get_hashfunc(digest_name)
+		elif len(digest) != init_hashfunc.digest_size * 2:
+			continue
 		else:
 			hashfunc = init_hashfunc.copy()
 
@@ -75,7 +85,10 @@ def check_hashes(fd, init_hashfunc, digest_name=None):
 		total += 1
 
 		while True:
-			data = infile.read(opts.bytes)
+			try:
+				data = infile.read(opts.bytes)
+			except KeyboardInterrupt:
+				sys.exit(0)
 
 			if not data:
 				break
@@ -164,10 +177,12 @@ if __name__ == "__main__":
 			hashfuncs.append((digest_name, get_hashfunc(digest_name)))
 
 	filename = "-"
+	infile = sys.stdin
+	outfile = sys.stdout
 
 	if largs != 0 and args[0] != "-":
 		try:
-			sys.stdin = open(args[0], "rb")
+			infile = open(args[0], "rb")
 		except Exception, e:
 			print >>sys.stderr, "%s:" % sys.argv[0], e
 			sys.exit(1)
@@ -176,7 +191,7 @@ if __name__ == "__main__":
 	
 	if not opts.nodata and largs == 2 and args[1] != "-":
 		try:
-			sys.stdout = open(args[1], "wb")
+			outfile = open(args[1], "wb")
 		except Exception, e:
 			print >>sys.stderr, "%s:" % sys.argv[0], e
 			sys.exit(1)
@@ -185,7 +200,10 @@ if __name__ == "__main__":
 			filename = args[1]
 
 	while True:
-		data = sys.stdin.read(opts.bytes)
+		try:
+			data = infile.read(opts.bytes)
+		except KeyboardInterrupt:
+			sys.exit(0)
 
 		if not data:
 			break
@@ -194,7 +212,13 @@ if __name__ == "__main__":
 			func[1].update(data)
 		
 		if not opts.nodata:
-			sys.stdout.write(data)
+			outfile.write(data)
+
+	if infile.name != "<stdin>":
+		infile.close()
+
+	if outfile.name != "<stdout>":
+		outfile.close()
 
 	for func in hashfuncs:
 		if len(hashfuncs) > 1:
