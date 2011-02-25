@@ -25,16 +25,16 @@ else:
 	if not hasattr(hashlib, 'algorithms'):
 		hashlib.algorithms = ("md5", "sha1", "sha224", "sha256", "sha384", "sha512")
 
-def get_hashfunc(digest):
+def get_hashfunc(name):
 	try:
-		return hashlib.new(digest)
+		return hashlib.new(name)
 	except ValueError:
-		print >>sys.stderr, "%s: unsupported hash type" % sys.argv[0], digest
+		print >>sys.stderr, "%s: unsupported hash type" % sys.argv[0], name
 		print >>sys.stderr, "\nSupported algorithms:", ", ".join(hashlib.algorithms)
 		print >>sys.stderr, " ** Additional algorithms may also be available depending upon the OpenSSL library that Python uses on your platform."
 		sys.exit(1)
-
-def check_hashes(fd, init_hashfunc):
+	
+def check_hashes(fd, init_hashfunc, digest_name=None):
 	total = failed = 0
 
 	for line in fd:
@@ -54,12 +54,12 @@ def check_hashes(fd, init_hashfunc):
 			continue
 
 		if init_hashfunc is None:
-			digest = digest_lengths.get(len(digest), None)
+			digest_name = digest_lengths.get(len(digest), None)
 		
-			if digest is None:
+			if digest_name is None:
 				continue
 
-			hashfunc = get_hashfunc(digest)
+			hashfunc = get_hashfunc(digest_name)
 		else:
 			hashfunc = init_hashfunc.copy()
 
@@ -88,9 +88,9 @@ def check_hashes(fd, init_hashfunc):
 		print "%s:" % filename,
 
 		if hashfunc.hexdigest() == digest:
-			print "OK %s" % hashfunc.name
+			print "OK %s" % digest_name
 		else:
-			print "FAILED %s" % hashfunc.name
+			print "FAILED %s" % digest_name
 			failed += 1
 			
 	if total == 0:
@@ -116,8 +116,9 @@ if __name__ == "__main__":
 	if opts.check:
 		if opts.hash is not None:
 			hashfunc = get_hashfunc(opts.hash[0])
+			digest_name = opts.hash[0]
 		else:
-			hashfunc = None
+			hashfunc = digest_name = None
 			digest_lengths = {}
 			for digest in hashlib.algorithms:
 				digest_lengths[hashlib.new(digest).digest_size * 2] = digest
@@ -130,7 +131,7 @@ if __name__ == "__main__":
 
 		for f in args:
 			if f == "-":
-				ret = check_hashes(sys.stdin, hashfunc)
+				ret = check_hashes(sys.stdin, hashfunc, digest_name)
 			else:
 				try:
 					fd = open(f, "r")
@@ -138,7 +139,7 @@ if __name__ == "__main__":
 					print >>sys.stderr, "%s:" % sys.argv[0], e
 					continue
 				else:
-					ret = check_hashes(fd, hashfunc)
+					ret = check_hashes(fd, hashfunc, digest_name)
 
 			total += ret["total"]
 			failed += ret["failed"]
@@ -159,8 +160,8 @@ if __name__ == "__main__":
 	hashfuncs = []
 
 	for tmp in opts.hash:
-		for digest in tmp.split(","):
-			hashfuncs.append(get_hashfunc(digest))
+		for digest_name in tmp.split(","):
+			hashfuncs.append((digest_name, get_hashfunc(digest_name)))
 
 	filename = "-"
 
@@ -190,14 +191,14 @@ if __name__ == "__main__":
 			break
 
 		for func in hashfuncs:
-			func.update(data)
+			func[1].update(data)
 		
 		if not opts.nodata:
 			sys.stdout.write(data)
 
 	for func in hashfuncs:
 		if len(hashfuncs) > 1:
-			print >>sys.stderr, "# %s" % func.name.upper()
+			print >>sys.stderr, "# %s" % func[0].upper()
 
-		print >>sys.stderr, "%s *%s" % (func.hexdigest(), filename)
+		print >>sys.stderr, "%s *%s" % (func[1].hexdigest(), filename)
 
