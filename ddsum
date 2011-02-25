@@ -3,6 +3,28 @@
 import sys
 import os.path
 
+try:
+	import hashlib
+except ImportError:
+	class compat_hashlib(object):
+
+		algorithms = ('md5', 'sha1')
+
+		def new(self, name):
+			if name in ("md5", "MD5"):
+				import md5
+				return md5.new()
+			elif name in ("sha1", "SHA1"):
+				import sha
+				return sha.new()
+			else:
+				raise ValueError("unsupported hash type %s" % name)
+
+	hashlib = compat_hashlib()
+
+if not hasattr(hashlib, 'algorithms'):
+	hashlib.algorithms = ("md5", "sha1", "sha224", "sha256", "sha384", "sha512")
+
 def check_hashes(fd):
 	ret = {"total": 0, "failed": 0}
 
@@ -30,17 +52,9 @@ def check_hashes(fd):
 			if digest_type is None:
 				continue
 
-		hashfunc = None
-
 		try:
 			hashfunc = hashlib.new(digest_type)
 		except:
-			if digest_type == "md5" and "md5" in algorithms:
-				hashfunc = md5.new()
-			elif digest_type == "sha1" and "sha1" in algorithms:
-				hashfunc = sha.new()
-
-		if hashfunc is None:
 			continue
 
 		if filename == "-":
@@ -92,45 +106,14 @@ if __name__ == "__main__":
 	parser.add_option("--devnull", action="store_true", dest="devnull", default=False, help="just hash the data and then throw it away")
 	(opts, args) = parser.parse_args()
 
-	has_hashlib = False
-
-	try:
-		import hashlib
-	except ImportError:
-		algorithms = []
-		digest_lengths = {}
-
-		try:
-			import md5
-		except:
-			pass
-		else:
-			algorithms.append("md5")
-			digest_lengths[md5.digest_size * 2] = "md5"
-
-		try:
-			import sha
-		except:
-			pass
-		else:
-			algorithms.append("sha1")
-			digest_lengths[sha.digest_size * 2] = "sha1"
-	else:
-		has_hashlib = True
-
-		if hasattr(hashlib, 'algorithms'):
-			algorithms = hashlib.algorithms
-		else:
-			algorithms = ("md5", "sha1", "sha224", "sha256", "sha384", "sha512")
-
-		digest_lengths = {}
-		for digest in algorithms:
-			length = hashlib.new(digest).digest_size * 2
-			digest_lengths[length] = digest
-
 	largs = len(args)
 
 	if opts.check:
+		digest_lengths = {}
+		for digest in hashlib.algorithms:
+			length = hashlib.new(digest).digest_size * 2
+			digest_lengths[length] = digest
+
 		total = 0
 		failed = 0
 
@@ -177,20 +160,12 @@ if __name__ == "__main__":
 		try:
 			hashfuncs[i] = hashlib.new(i)
 		except:
-			if i == "md5" and "md5" in algorithms:
-				hashfuncs["md5"] = md5.new()
-			elif i == "sha1" and "sha1" in algorithms:
-				hashfuncs["sha1"] = sha.new()
-			else:
-				print >>sys.stderr, "%s: unsupported hash type" % sys.argv[0], i
-				ok = False
+			print >>sys.stderr, "%s: unsupported hash type" % sys.argv[0], i
+			ok = False
 
 	if not ok:
-		print >>sys.stderr, "\nSupported algorithms:", ", ".join(algorithms)
-
-		if has_hashlib:
-			print >>sys.stderr, " ** Additional algorithms may also be available depending upon the OpenSSL library that Python uses on your platform."
-
+		print >>sys.stderr, "\nSupported algorithms:", ", ".join(hashlib.algorithms)
+		print >>sys.stderr, " ** Additional algorithms may also be available depending upon the OpenSSL library that Python uses on your platform."
 		sys.exit(1)
 
 	filename = "-"
