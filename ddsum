@@ -7,7 +7,6 @@ try:
 	import hashlib
 except ImportError:
 	class compat_hashlib(object):
-
 		algorithms = ('md5', 'sha1')
 
 		def new(self, name):
@@ -18,15 +17,25 @@ except ImportError:
 				import sha
 				return sha.new()
 			else:
-				raise ValueError("unsupported hash type %s" % name)
+				raise ValueError("unsupported hash type")
 
 	hashlib = compat_hashlib()
+else:
+	# hashlib in Python 2.7+ provides a list of algorithms
+	if not hasattr(hashlib, 'algorithms'):
+		hashlib.algorithms = ("md5", "sha1", "sha224", "sha256", "sha384", "sha512")
 
-if not hasattr(hashlib, 'algorithms'):
-	hashlib.algorithms = ("md5", "sha1", "sha224", "sha256", "sha384", "sha512")
+def get_hashfunc(digest):
+	try:
+		return hashlib.new(digest)
+	except ValueError:
+		print >>sys.stderr, "%s: unsupported hash type" % sys.argv[0], digest
+		print >>sys.stderr, "\nSupported algorithms:", ", ".join(hashlib.algorithms)
+		print >>sys.stderr, " ** Additional algorithms may also be available depending upon the OpenSSL library that Python uses on your platform."
+		sys.exit(1)
 
-def check_hashes(fd):
-	ret = {"total": 0, "failed": 0}
+def check_hashes(fd, init_hashfunc):
+	total = failed = 0
 
 	for line in fd:
 		try:
@@ -44,18 +53,15 @@ def check_hashes(fd):
 		else:
 			continue
 
-		if opts.hash is not None:
-			digest_type = opts.hash[0]
-		else:		
-			digest_type = digest_lengths.get(len(digest), None)
+		if init_hashfunc is None:
+			digest = digest_lengths.get(len(digest), None)
 		
-			if digest_type is None:
+			if digest is None:
 				continue
 
-		try:
-			hashfunc = hashlib.new(digest_type)
-		except:
-			continue
+			hashfunc = get_hashfunc(digest)
+		else:
+			hashfunc = init_hashfunc.copy()
 
 		if filename == "-":
 			infile = sys.stdin
@@ -66,7 +72,7 @@ def check_hashes(fd):
 				print >>sys.stderr, "%s:" % sys.argv[0], e
 				continue
 
-		ret["total"] += 1
+		total += 1
 
 		while True:
 			data = infile.read(opts.bytes)
@@ -82,19 +88,18 @@ def check_hashes(fd):
 		print "%s:" % filename,
 
 		if hashfunc.hexdigest() == digest:
-			print "OK %s" % digest_type
+			print "OK %s" % hashfunc.name
 		else:
-			print "FAILED %s" % digest_type
-			ret["failed"] += 1
+			print "FAILED %s" % hashfunc.name
+			failed += 1
 			
-	if ret["total"] == 0:
+	if total == 0:
 		print >>sys.stderr, "%s: %s: no properly formatted checksum lines found" % (sys.argv[0], fd.name)
 
 	if fd.name != "<stdin>":
 		fd.close()
 
-	return ret
-
+	return {"total": total, "failed": failed}
 
 if __name__ == "__main__":
 	from optparse import OptionParser
@@ -103,17 +108,19 @@ if __name__ == "__main__":
 	parser.add_option("-b", "--blocksize", action="store", type="int", dest="bytes", default=4096, help="read and write BYTES bytes at a time")
 	parser.add_option("-c", "--check", action="store_true", dest="check", default=False, help="read sums from the FILEs and check them")
 	parser.add_option("-h", "--hash", action="append", dest="hash", help="FIPS secure hash algorithm(s) to use (default: sha1)")
-	parser.add_option("-H", action="append", metavar="HASH", dest="hash_legacy", help="DEPRECATED, use -h or --hash instead")
-	parser.add_option("--devnull", action="store_true", dest="devnull", default=False, help="just hash the data and then throw it away")
+	parser.add_option("-n", "--no-data", action="store_true", dest="nodata", default=False, help="do not output the source data")
 	(opts, args) = parser.parse_args()
 
 	largs = len(args)
 
 	if opts.check:
-		digest_lengths = {}
-		for digest in hashlib.algorithms:
-			length = hashlib.new(digest).digest_size * 2
-			digest_lengths[length] = digest
+		if opts.hash is not None:
+			hashfunc = get_hashfunc(opts.hash[0])
+		else:
+			hashfunc = None
+			digest_lengths = {}
+			for digest in hashlib.algorithms:
+				digest_lengths[hashlib.new(digest).digest_size * 2] = digest
 
 		total = 0
 		failed = 0
@@ -123,7 +130,7 @@ if __name__ == "__main__":
 
 		for f in args:
 			if f == "-":
-				ret = check_hashes(sys.stdin)
+				ret = check_hashes(sys.stdin, hashfunc)
 			else:
 				try:
 					fd = open(f, "r")
@@ -131,7 +138,7 @@ if __name__ == "__main__":
 					print >>sys.stderr, "%s:" % sys.argv[0], e
 					continue
 				else:
-					ret = check_hashes(fd)
+					ret = check_hashes(fd, hashfunc)
 
 			total += ret["total"]
 			failed += ret["failed"]
@@ -142,37 +149,18 @@ if __name__ == "__main__":
 	
 		sys.exit(0)
 
-	if largs > 2 or (opts.devnull and largs > 1):
+	if largs > 2 or (opts.nodata and largs > 1):
 		parser.print_usage()
 		sys.exit(1)
 
-	hashes = []
+	if opts.hash is None:
+		opts.hash = ['sha1',]
 
-	if opts.hash_legacy is not None:
-		print >>sys.stderr, "WARNING: -H is deprecated, use -h or --hash instead as this option will removed."
-		hashes += opts.hash_legacy
+	hashfuncs = []
 
-	if opts.hash is not None:
-		for i in opts.hash:
-			hashes += i.split(",")
-
-	if len(hashes) == 0:
-		hashes = ['sha1',]
-
-	hashfuncs = {}
-	ok = True
-
-	for i in hashes:
-		try:
-			hashfuncs[i] = hashlib.new(i)
-		except:
-			print >>sys.stderr, "%s: unsupported hash type" % sys.argv[0], i
-			ok = False
-
-	if not ok:
-		print >>sys.stderr, "\nSupported algorithms:", ", ".join(hashlib.algorithms)
-		print >>sys.stderr, " ** Additional algorithms may also be available depending upon the OpenSSL library that Python uses on your platform."
-		sys.exit(1)
+	for tmp in opts.hash:
+		for digest in tmp.split(","):
+			hashfuncs.append(get_hashfunc(digest))
 
 	filename = "-"
 
@@ -185,7 +173,7 @@ if __name__ == "__main__":
 	
 		filename = args[0]
 	
-	if not opts.devnull and largs == 2 and args[1] != "-":
+	if not opts.nodata and largs == 2 and args[1] != "-":
 		try:
 			sys.stdout = open(args[1], "wb")
 		except Exception, e:
@@ -201,15 +189,15 @@ if __name__ == "__main__":
 		if not data:
 			break
 
-		for func in hashfuncs.values():
+		for func in hashfuncs:
 			func.update(data)
 		
-		if not opts.devnull:
+		if not opts.nodata:
 			sys.stdout.write(data)
 
-	for name, func in hashfuncs.iteritems():
+	for func in hashfuncs:
 		if len(hashfuncs) > 1:
-			print >>sys.stderr, "# %s" % name.upper()
+			print >>sys.stderr, "# %s" % func.name.upper()
 
 		print >>sys.stderr, "%s *%s" % (func.hexdigest(), filename)
 

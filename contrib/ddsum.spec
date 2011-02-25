@@ -35,11 +35,14 @@ cp -f ddsum  %{buildroot}/%{_bindir}/
 
 
 %changelog
-* Thu Feb 24 2011 Jeff Fisher <guppy@ddsum.com> - 7-1
+* Fri Feb 25 2011 Jeff Fisher <guppy@ddsum.com> - 7-1
 - Added the ability to force what type of hash to use when checking files
 - Cleaned up the code used when hashlib isn't available
 - Updated README with the new text from the website
 - Added stdin support to check mode
+- General code clean up
+- The option to specify a hash was changed from -H to -h
+- Changed --devnull to --no-data (or -n)
  
 * Wed Feb 23 2011 Jeff Fisher <guppy@ddsum.com> - 6-1
 - Added a check mode
