@@ -26,8 +26,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-import sys
 import os.path
+import sys
 
 try:
 	import hashlib
@@ -137,7 +137,7 @@ def check_hashes(fd):
 
 if __name__ == "__main__":
 	from optparse import OptionParser
-	parser = OptionParser(usage="usage: %prog [OPTION] [infile [outfile]]", version="%prog 7", add_help_option=False)
+	parser = OptionParser(usage="usage: %prog [OPTION] [infile [outfile]]", version="%prog 8", add_help_option=False)
 	parser.add_option("--help", action="help")
 	parser.add_option("-b", "--blocksize", action="store", type="int", dest="bytes", default=4096, help="read and write BYTES bytes at a time")
 	parser.add_option("-c", "--check", action="store_true", dest="check", default=False, help="read sums from the FILEs and check them")
