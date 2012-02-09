@@ -28,6 +28,7 @@
 #
 import os.path
 import sys
+import time
 
 try:
 	import hashlib
@@ -59,164 +60,88 @@ def get_hashfunc(name):
 		print >>sys.stderr, "\nSupported algorithms:", ", ".join(hashlib.algorithms)
 		print >>sys.stderr, " ** Additional algorithms may also be available depending upon the OpenSSL library that Python uses on your platform."
 		sys.exit(1)
+
+def verify_hash(fname, digest, total, failed):
+	open_mode = "r"
+
+	if fname[0] == "*":
+		open_mode = "rb"
+		fname = fname[1:]
+	elif fname[0] == " ":
+		fname = fname[1:]
+	else:
+		return
+
+	digest_name = digest_lengths.get(len(digest), None)
 	
-def check_hashes(fd):
-	total = failed = 0
+	if digest_name is None:
+		return
+
+	hashfunc = get_hashfunc(digest_name)
+
+	if fname == "-":
+		infile = sys.stdin
+	else:	
+		try:
+			infile = open(os.path.realpath(fname), open_mode)
+		except Exception, e:
+			print >>sys.stderr, "%s:" % sys.argv[0], e
+			return
+
+	total.value += 1
 
 	while True:
 		try:
-			line = fd.readline()
+			data = infile.read(opts.bytes)
 		except KeyboardInterrupt:
 			sys.exit(0)
 
-		if not line:
+		if not data:
 			break
 
+		hashfunc.update(data)
+
+	if infile.name != "<stdin>":
+		infile.close()
+
+	if hashfunc.hexdigest() == digest:
+		print "%s: OK %s" % (fname, digest_name)
+	else:
+		print "%s: FAILED %s" % (fname, digest_name)
+		failed.value += 1
+
+def compute_hash(in_fname, out_fname):
+	if in_fname is not None:
 		try:
-			digest, filename = line.strip().split(" ", 1)
-		except:
-			continue
-
-		open_mode = "r"
-
-		if filename[0] == "*":
-			open_mode = "rb"
-			filename = filename[1:]
-		elif filename[0] == " ":
-			filename = filename[1:]
-		else:
-			continue
-
-		digest_name = digest_lengths.get(len(digest), None)
-		
-		if digest_name is None:
-			continue
-
-		hashfunc = get_hashfunc(digest_name)
-
-		if filename == "-":
-			infile = sys.stdin
-		else:	
-			try:
-				infile = open(os.path.realpath(filename), open_mode)
-			except Exception, e:
-				print >>sys.stderr, "%s:" % sys.argv[0], e
-				continue
-
-		total += 1
-
-		while True:
-			try:
-				data = infile.read(opts.bytes)
-			except KeyboardInterrupt:
-				sys.exit(0)
-
-			if not data:
-				break
-
-			hashfunc.update(data)
+			infile = open(in_fname, "rb")
+		except Exception, e:
+			print "%s:" % in_fname, e
+			return
 	
-		if infile.name != "<stdin>":
-			infile.close()
-
-		print "%s:" % filename,
-
-		if hashfunc.hexdigest() == digest:
-			print "OK %s" % digest_name
-		else:
-			print "FAILED %s" % digest_name
-			failed += 1
-			
-	if total == 0:
-		print >>sys.stderr, "%s: %s: no properly formatted checksum lines found" % (sys.argv[0], fd.name)
-
-	if fd.name != "<stdin>":
-		fd.close()
-
-	return {"total": total, "failed": failed}
-
-if __name__ == "__main__":
-	from optparse import OptionParser
-	parser = OptionParser(usage="usage: %prog [OPTION] [infile [outfile]]", version="%prog 8", add_help_option=False)
-	parser.add_option("--help", action="help")
-	parser.add_option("-b", "--blocksize", action="store", type="int", dest="bytes", default=4096, help="read and write BYTES bytes at a time")
-	parser.add_option("-c", "--check", action="store_true", dest="check", default=False, help="read sums from the FILEs and check them")
-	parser.add_option("-h", "--hash", action="append", dest="hash", help="FIPS secure hash algorithm(s) to use (default: sha1)")
-	parser.add_option("-n", "--no-data", action="store_true", dest="nodata", default=False, help="do not output the source data")
-	(opts, args) = parser.parse_args()
-
-	largs = len(args)
-
-	if opts.check:
-		if opts.hash is not None:
-			digest_lengths = {get_hashfunc(opts.hash[0]).digest_size * 2: opts.hash[0]}
-		else:
-			digest_lengths = {}
-			for digest in hashlib.algorithms:
-				digest_lengths[hashlib.new(digest).digest_size * 2] = digest
-
-		total = 0
-		failed = 0
-
-		if largs == 0:
-			args = ["-",]
-
-		for f in args:
-			if f == "-":
-				ret = check_hashes(sys.stdin)
-			else:
-				try:
-					fd = open(f, "r")
-				except Exception, e:
-					print >>sys.stderr, "%s:" % sys.argv[0], e
-					continue
-				else:
-					ret = check_hashes(fd)
-
-			total += ret["total"]
-			failed += ret["failed"]
-				
-		if failed > 0:
-			print >>sys.stderr, "%s: WARNING: %d of %d computed checksum did NOT match" % (sys.argv[0], failed, total)
-			sys.exit(1)
+		filename = in_fname
+	else:
+		filename = "-"
+		infile = sys.stdin
 	
-		sys.exit(0)
-
-	if largs > 2 or (opts.nodata and largs > 1):
-		parser.print_usage()
-		sys.exit(1)
-
-	if opts.hash is None:
-		opts.hash = ['sha1',]
+	if out_fname is not None:
+		try:
+			outfile = open(out_fname, "wb")
+		except Exception, e:
+			print "%s:" % out_fname, e
+			return
+	
+		if out_fname != "-":
+			filename = out_fname
+	elif not opts.nodata:
+		outfile = sys.stdout
+	else:
+		outfile = None
 
 	hashfuncs = []
 
 	for tmp in opts.hash:
 		for digest_name in tmp.split(","):
 			hashfuncs.append((digest_name, get_hashfunc(digest_name)))
-
-	filename = "-"
-	infile = sys.stdin
-	outfile = sys.stdout
-
-	if largs != 0 and args[0] != "-":
-		try:
-			infile = open(args[0], "rb")
-		except Exception, e:
-			print >>sys.stderr, "%s:" % sys.argv[0], e
-			sys.exit(1)
-	
-		filename = args[0]
-	
-	if not opts.nodata and largs == 2 and args[1] != "-":
-		try:
-			outfile = open(args[1], "wb")
-		except Exception, e:
-			print >>sys.stderr, "%s:" % sys.argv[0], e
-			sys.exit(1)
-
-		if args[1] != "-":
-			filename = args[1]
 
 	while True:
 		try:
@@ -230,18 +155,169 @@ if __name__ == "__main__":
 		for func in hashfuncs:
 			func[1].update(data)
 		
-		if not opts.nodata:
+		if outfile is not None:
 			outfile.write(data)
 
 	if infile.name != "<stdin>":
 		infile.close()
 
-	if outfile.name != "<stdout>":
+	if outfile is not None and outfile.name != "<stdout>":
 		outfile.close()
 
 	for func in hashfuncs:
 		if len(hashfuncs) > 1:
-			print >>sys.stderr, "# %s" % func[0].upper()
+			print "# %s\n%s *%s" % (func[0].upper(), func[1].hexdigest(), filename)
+		else:
+			print "%s *%s" % (func[1].hexdigest(), filename)
 
-		print >>sys.stderr, "%s *%s" % (func[1].hexdigest(), filename)
+if __name__ == "__main__":
+	from optparse import OptionParser
+	parser = OptionParser(usage="usage: %prog [OPTION] [infile [outfile]]", version="%prog 9", add_help_option=False)
+	parser.add_option("--help", action="help")
+	parser.add_option("-b", "--blocksize", action="store", type="int", dest="bytes", default=4096, help="read and write BYTES bytes at a time")
+	parser.add_option("-c", "--check", action="store_true", dest="check", default=False, help="read sums from the FILEs and check them")
+	parser.add_option("-h", "--hash", action="append", dest="hash", help="FIPS secure hash algorithm(s) to use (default: sha1)")
+	parser.add_option("-n", "--no-data", action="store_true", dest="nodata", default=False, help="do not output the source data")
+	parser.add_option("-m", "--multiple", action="store_true", dest="multiple", default=False, help="generate checksums for multiple files, do not output any source data")
+	parser.add_option("-j", "--jobs", action="store", type="int", dest="jobs", default=1, help="number of jobs to run at once (default: 1)")
+	(opts, args) = parser.parse_args()
 
+	largs = len(args)
+
+	if opts.jobs > 1:
+		try:
+			import multiprocessing
+			from multiprocessing import Value	
+		except:
+			print >>sys.stderr, "Your python installation does not have the multiprocessing module and you cannot run more than 1 job"
+			sys.exit(1)
+
+		def active_jobs():
+			return len(multiprocessing.active_children())
+	else:
+		class Value(object):
+			def __init__(self, type, start):
+				self.value = start
+
+		def active_jobs():
+			return 0
+
+	if opts.check:
+		if opts.hash is not None:
+			digest_lengths = {get_hashfunc(opts.hash[0]).digest_size * 2: opts.hash[0]}
+		else:
+			digest_lengths = {}
+			for digest in hashlib.algorithms:
+				digest_lengths[hashlib.new(digest).digest_size * 2] = digest
+
+		total = Value('i', 0)
+		failed = Value('i', 0)
+
+		if largs == 0:
+			args = ["-",]
+
+		fd = None
+		done = False
+
+		while True:
+			if active_jobs() >= opts.jobs:
+				time.sleep(.25)
+				continue
+
+			if done:
+				if active_jobs() > 0:
+					time.sleep(.25)
+					continue
+
+				if failed.value > 0:
+					print >>sys.stderr, "%s: WARNING: %d of %d computed checksum did NOT match" % (sys.argv[0], failed.value, total.value)
+					sys.exit(1)
+			
+        	                sys.exit(0)
+
+			if fd is None:
+				try:
+					fname = args.pop()
+				except IndexError:
+					done = True
+					continue
+
+				if fname == "-":
+					fd = sys.stdin
+				else:
+					try:
+						fd = open(fname, "r")
+					except Exception, e:
+						print >>sys.stderr, "%s:" % sys.argv[0], e
+						continue
+			
+			try:
+				line = fd.readline()
+			except KeyboardInterrupt:
+				sys.exit(0)
+
+			if not line:
+				if fd.name != "<stdin>":
+					fd.close()
+
+				fd = None
+				continue
+
+			try:
+				digest, filename = line.strip().split(" ", 1)
+			except:
+				continue
+
+			if opts.jobs > 1:
+				p = multiprocessing.Process(target=verify_hash, args=(filename, digest, total, failed))
+				p.start()
+			else:
+				verify_hash(filename, digest, total, failed)
+
+	if not opts.multiple and (largs > 2 or (opts.nodata and largs > 1)):
+		parser.print_usage()
+		sys.exit(1)
+
+	if opts.hash is None:
+		opts.hash = ['sha1',]
+
+	if opts.multiple:
+		opts.nodata = True
+		done = False
+
+		while True:
+			if active_jobs() >= opts.jobs:
+				time.sleep(.25)
+				continue
+
+			if done:
+				if active_jobs() > 0:
+					time.sleep(.25)
+					continue
+
+				sys.exit(0)
+	
+			try:
+				fname = args.pop()
+			except IndexError:
+				done = True
+				continue
+
+			if opts.jobs > 1:
+				p = multiprocessing.Process(target=compute_hash, args=(fname, None))
+				p.start()
+			else:
+				compute_hash(fname, None)
+
+		sys.exit(0)
+
+	in_fname = None
+	out_fname = None
+
+	if largs != 0 and args[0] != "-":
+		in_fname = args[0]
+	
+	if not opts.nodata and largs == 2 and args[1] != "-":
+		out_fname = args[1]
+
+	compute_hash(in_fname, out_fname)
